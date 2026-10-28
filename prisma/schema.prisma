@@ -1,0 +1,132 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  username     String   @unique
+  passwordHash String
+  displayName  String
+  role         Role
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  visits          Visit[]         @relation("OperatorVisits")
+  createdVisits   Visit[]         @relation("VisitCreatedBy")
+  createdPatients Patient[]       @relation("PatientCreatedBy")
+
+  @@index([role])
+}
+
+enum Role {
+  MANAGER
+  SECRETARY
+  OPERATOR
+}
+
+model Patient {
+  id          String    @id @default(cuid())
+  nationalId  String    @unique
+  firstName   String
+  lastName    String
+  phone       String
+  birthDate   DateTime?
+  notes       String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  createdBy   User      @relation("PatientCreatedBy", fields: [createdById], references: [id])
+  createdById String
+
+  visits      Visit[]
+
+  @@index([nationalId])
+  @@index([phone])
+}
+
+model Service {
+  id          String   @id @default(cuid())
+  name        String
+  category    String
+  price       Int
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  visits      Visit[]
+
+  @@index([category])
+  @@index([isActive])
+}
+
+model Visit {
+  id           String      @id @default(cuid())
+  patient      Patient     @relation(fields: [patientId], references: [id])
+  patientId    String
+  service      Service     @relation(fields: [serviceId], references: [id])
+  serviceId    String
+  status       VisitStatus @default(WAITING)
+
+  createdBy    User        @relation("VisitCreatedBy", fields: [createdById], references: [id])
+  createdById  String
+
+  operator     User?       @relation("OperatorVisits", fields: [operatorId], references: [id])
+  operatorId   String?
+
+  acceptedAt   DateTime?
+  startedAt    DateTime?
+  finishedAt   DateTime?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  treatmentLog String?
+
+  photos       Photo[]
+  payment      Payment?
+
+  @@index([status])
+  @@index([patientId])
+  @@index([createdAt])
+}
+
+enum VisitStatus {
+  WAITING
+  IN_PROGRESS
+  DONE
+  PAID
+  CANCELLED
+}
+
+model Photo {
+  id        String   @id @default(cuid())
+  visit     Visit    @relation(fields: [visitId], references: [id])
+  visitId   String
+  filename  String
+  mimeType  String
+  sizeBytes Int
+  createdAt DateTime @default(now())
+}
+
+model Payment {
+  id            String        @id @default(cuid())
+  visit         Visit         @relation(fields: [visitId], references: [id])
+  visitId       String        @unique
+  amount        Int
+  method        PaymentMethod
+  referenceCode String?
+  paidAt        DateTime      @default(now())
+  createdAt     DateTime      @default(now())
+}
+
+enum PaymentMethod {
+  POS
+  CASH
+  CARD_TO_CARD
+}
